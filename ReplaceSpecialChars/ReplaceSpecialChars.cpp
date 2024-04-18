@@ -4,28 +4,30 @@
 #include <string>
 #include <codecvt> // For codecvt_utf8
 
-
 using namespace std;
 
 char DecodeUtf8TwoByte(char c1, char c2) {
     // Decode a two-byte UTF-8 character
     unsigned char u1 = static_cast<unsigned char>(c1);
     unsigned char u2 = static_cast<unsigned char>(c2);
-    if ((u1 & 0xE0) != 0xC0 || (u2 & 0xC0) != 0x80) {
+    if ((u1 & 0xE0) != 0xC0 || (u2 & 0xC0) != 0x80) 
+    {
         // Invalid UTF-8 sequence, return placeholder character
         return '?';
     }
     // Replace specific UTF-8 characters with their ASCII equivalents
-    if (u1 == 0xC3) {
-        switch (u2) {
-        case 0xA8: return 'e'; // Diacritic "è"
-        case 0xBB: return 'e'; // Diacritic "ë"
-        case 0xB4: return 'o'; // Diacritic "ô"
-        case 0xB6: return 'o'; // Diacritic "ö"
-        case 0xA0: return 'a'; // "à"
-        case 0xA7: return 'c'; // "ç"
-            // Add more replacements as needed
-        case 0xA9: return 'e'; // Diacritic "é"
+    if (u1 == 0xC3) 
+    {
+        switch (u2) 
+        {
+            case 0xA0: return 'a'; // Replace 'Ã ' with 'a'
+            case 0xA7: return 'c'; // Replace 'Ã§' with 'c'
+            case 0xA8: return 'e'; // Replace 'Ã¨' with 'e'
+            case 0xA9: return 'e'; // Replace 'Ã©' with 'e'
+            case 0xBB: return 'e'; // Replace 'Ã«' with 'e'
+            case 0xB4: return 'o'; // Replace 'Ã´' with 'o'
+            case 0xB6: return 'o'; // Replace 'Ã¶' with 'o'
+            
         }
     }
     return '?'; // Placeholder character if no replacement is found
@@ -42,31 +44,45 @@ char DecodeUtf8ThreeByte(char c1, char c2, char c3) {
         return '?';
     }
     // Replace specific UTF-8 characters with their ASCII equivalents
-    if (u1 == 0xC3 && u2 == 0xAE) return 'i'; // Diacritic "î"
-    // Add more replacements as needed
+    
     return '?'; // Placeholder character if no replacement is found
 }
 
-// Function to replace non-ASCII characters with their ASCII equivalents
+/**
+ * @brief Converts a string containing potentially non-ASCII characters into a string of ASCII characters.
+ *
+ * This function iterates over each character in the input string. If a character falls within the ASCII range, 
+ * it is added to the result string as is. If a character is a two-byte or three-byte UTF-8 character, 
+ * it is decoded and converted to an ASCII equivalent if possible. If a character is not an ASCII character 
+ * and not a recognized UTF-8 character, it is appended to the result string as is.
+ *
+ * @param text The input string to be converted.
+ * @return A string where all non-ASCII characters in the input string have been replaced with their ASCII equivalents, 
+ * or with a placeholder character if no equivalent exists.
+ */
 string ConvertToAsciiString(const string& text) {
     string result;
     for (size_t i = 0; i < text.size(); ++i) {
         unsigned char c = text[i];
-        if (c <= 0x7F) {
+        if (c <= 0x7F) 
+        {
             result += c; // Keep ASCII characters as they are
         }
         else {
             // Handle UTF-8 characters correctly
-            if ((c & 0xE0) == 0xC0) { // Two-byte UTF-8 character
+            if ((c & 0xE0) == 0xC0)         
+            { // Two-byte UTF-8 character
                 char c2 = text[++i];
                 result += DecodeUtf8TwoByte(c, c2);
             }
-            else if ((c & 0xF0) == 0xE0) { // Three-byte UTF-8 character
+            else if ((c & 0xF0) == 0xE0)
+            { // Three-byte UTF-8 character
                 char c2 = text[++i];
                 char c3 = text[++i];
                 result += DecodeUtf8ThreeByte(c, c2, c3);
             }
-            else {
+            else 
+            {
                 // If the character is not replaced, append it as it is
                 result += c;
             }
@@ -74,11 +90,6 @@ string ConvertToAsciiString(const string& text) {
     }
     return result;
 }
-
-
-
-
-
 
 string InputFilePaths()
 {
