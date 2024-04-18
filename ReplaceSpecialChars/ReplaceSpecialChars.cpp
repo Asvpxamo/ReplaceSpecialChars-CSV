@@ -118,8 +118,8 @@ string OutputFilePath(string inputFilePath)
             for (int k = 0; k < i + 1; k++)
             {
                 outputPath += inputFilePath[k];
-                flag = 1;
             }
+            flag = 1;
         }
     }
     return outputPath;
