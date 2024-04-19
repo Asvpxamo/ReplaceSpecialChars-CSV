@@ -6,7 +6,8 @@
 
 using namespace std;
 
-char DecodeUtf8TwoByte(char c1, char c2) {
+char DecodeUtf8TwoByte(char c1, char c2) 
+{
     // Decode a two-byte UTF-8 character
     unsigned char u1 = static_cast<unsigned char>(c1);
     unsigned char u2 = static_cast<unsigned char>(c2);
@@ -19,8 +20,7 @@ char DecodeUtf8TwoByte(char c1, char c2) {
     if (u1 == 0xC3) 
     {
         switch (u2) 
-        {
-            case 0xA0: return 'a'; // Replace 'à' with 'a'
+        {         
             case 0xA7: return 'c'; // Replace 'ç' with 'c'
             case 0xA8: return 'e'; // Replace 'è' with 'e'
             case 0xA9: return 'e'; // Replace 'é' with 'e'
@@ -34,7 +34,8 @@ char DecodeUtf8TwoByte(char c1, char c2) {
 }
 
 
-char DecodeUtf8ThreeByte(char c1, char c2, char c3) {
+char DecodeUtf8ThreeByte(char c1, char c2, char c3) 
+{
     // Decode a three-byte UTF-8 character
     unsigned char u1 = static_cast<unsigned char>(c1);
     unsigned char u2 = static_cast<unsigned char>(c2);
@@ -68,7 +69,8 @@ string ConvertToAsciiString(const string& text) {
         {
             result += c; // Keep ASCII characters as they are
         }
-        else {
+        else 
+        {
             // Handle UTF-8 characters correctly
             if ((c & 0xE0) == 0xC0)         
             { // Two-byte UTF-8 character
@@ -94,49 +96,70 @@ string ConvertToAsciiString(const string& text) {
 string InputFilePaths()
 {
     string inputPath = "", temp;
-    std::cout << "Input the file Path (put in double quotes if the path include spaces): ";
-    cin >> temp;
-    for (int i = 0; i < temp.size(); i++)
+    bool validPath = false;
+    while (!validPath)
     {
-        if (temp[i] != '\"')
+        std::cout << "Input the file Path (put in double quotes if the path include spaces): ";
+        cin >> temp;
+        for (int i = 0; i < temp.size(); i++)
         {
-            inputPath += temp[i];
+            if (temp[i] != '\"')
+            {
+                inputPath += temp[i];
+            }
+        }
+        // Check if the input path is valid
+        ifstream file(inputPath);
+        if (file.good())
+        {
+            validPath = true;
+            file.close();
+        }
+        else
+        {
+            cerr << "Error: Invalid file path. Please try again." << endl;
+            inputPath = "";
         }
     }
     return inputPath;
 }
-
-string OutputFilePath(string inputFilePath)
+/**
+ * @brief Extracts the directory path from a full file path.
+ *
+ * This function extracts the directory path from a full file path by finding the last occurrence of a slash character
+ * ('/' or '\') and returning the substring up to that point.
+ * *
+ * * @param inputFilePath The full file path from which to extract the directory path.
+ * * @return The directory path extracted from the input file path.
+ * */
+string OutputFilePath(const string& inputFilePath) 
 {
-    string outputPath = "";
-    int flag = 0;
-    std::cout << inputFilePath.size() << endl;
-    for (int i = inputFilePath.size(); flag != 1; i--)
+    size_t lastSlashIndex = inputFilePath.find_last_of("\\/");
+    if (lastSlashIndex == string::npos) 
     {
-        if (inputFilePath[i] == '\\')
-        {
-            for (int k = 0; k < i + 1; k++)
-            {
-                outputPath += inputFilePath[k];
-            }
-            flag = 1;
-        }
+        return "";
     }
-    return outputPath;
+    return inputFilePath.substr(0, lastSlashIndex + 1);
 }
 
-int main() {
+
+int main() 
+{
     // Specify the path to the input CSV file
     string inputFilePath = InputFilePaths();
     std::cout << inputFilePath << endl;
     // Specify the path to the output CSV file
-    string outputFilePath = OutputFilePath(inputFilePath);
-    std::cout << outputFilePath << endl;
+    string outputDirectory = OutputFilePath(inputFilePath);
+    std::cout << outputDirectory << endl;
+
+    string fileName = "corrected_" + inputFilePath.substr(inputFilePath.find_last_of("\\/") + 1);
+    ofstream outputFile(outputDirectory + fileName);
 
     try {
         // Open the input CSV file with specific encoding
         ifstream inputFile(inputFilePath);   // Use binary mode to prevent automatic encoding detection
-        if (!inputFile.is_open()) {
+        if (!inputFile.is_open()) 
+        {
             cerr << "Error: Unable to open input file." << endl;
             return 1;
         }
@@ -144,16 +167,17 @@ int main() {
         // Set the locale to UTF-8 to handle UTF-8 encoded characters
         inputFile.imbue(locale(locale(), new codecvt_utf8<wchar_t>));
         //inputFile.imbue(locale("en_US.UTF-8"));
-
+        
         // Open the output CSV file
-        ofstream outputFile(outputFilePath + "NewFile15.csv");
-        if (!outputFile.is_open()) {
+        if (!outputFile.is_open()) 
+        {
             throw runtime_error("Failed to open output file.");
         }
 
-        // Process each line of the input CSV file
+        // Process each line of the input CSV
         string line;
-        while (getline(inputFile, line)) {
+        while (getline(inputFile, line)) 
+        {
             // Replace non-ASCII characters in the line
             string modifiedLine = ConvertToAsciiString(line);
             // Write the modified line to the output CSV file
@@ -164,9 +188,10 @@ int main() {
         inputFile.close();
         outputFile.close();
 
-        cout << "CSV file processing completed. Output file created at: " << outputFilePath << endl;
+        cout << "CSV file processing completed. Output file created at: " << outputDirectory + fileName  << endl;
     }
-    catch (const exception& e) {
+    catch (const exception& e) 
+    {
         cerr << "Error: " << e.what() << endl;
         return 1;
     }
