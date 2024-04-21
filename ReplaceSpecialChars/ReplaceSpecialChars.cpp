@@ -3,8 +3,11 @@
 #include <locale>
 #include <string>
 #include <codecvt> // For codecvt_utf8
+#include <filesystem> // For std::filesystem
+#include <algorithm> // For std::remove
 
 using namespace std;
+namespace fs = std::filesystem;
 
 char DecodeUtf8TwoByte(char c1, char c2) 
 {
@@ -40,7 +43,8 @@ char DecodeUtf8ThreeByte(char c1, char c2, char c3)
     unsigned char u1 = static_cast<unsigned char>(c1);
     unsigned char u2 = static_cast<unsigned char>(c2);
     unsigned char u3 = static_cast<unsigned char>(c3);
-    if ((u1 & 0xF0) != 0xE0 || (u2 & 0xC0) != 0x80 || (u3 & 0xC0) != 0x80) {
+    if ((u1 & 0xF0) != 0xE0 || (u2 & 0xC0) != 0x80 || (u3 & 0xC0) != 0x80) 
+    {
         // Invalid UTF-8 sequence, return placeholder character
         return '?';
     }
@@ -61,9 +65,12 @@ char DecodeUtf8ThreeByte(char c1, char c2, char c3)
  * @return A string where all non-ASCII characters in the input string have been replaced with their ASCII equivalents, 
  * or with a placeholder character if no equivalent exists.
  */
-string ConvertToAsciiString(const string& text) {
+string ConvertToAsciiString(const string text) 
+{
     string result;
-    for (size_t i = 0; i < text.size(); ++i) {
+    char c2, c3; // Declare c2 and c3 outside the loop
+    for (size_t i = 0; i < text.size(); ++i) 
+    {
         unsigned char c = text[i];
         if (c <= 0x7F) 
         {
@@ -72,15 +79,15 @@ string ConvertToAsciiString(const string& text) {
         else 
         {
             // Handle UTF-8 characters correctly
-            if ((c & 0xE0) == 0xC0)         
+            if ((c & 0xE0) == 0xC0) 
             { // Two-byte UTF-8 character
-                char c2 = text[++i];
+                c2 = text[++i]; // Reuse c2 without redeclaration and reinitialization
                 result += DecodeUtf8TwoByte(c, c2);
             }
-            else if ((c & 0xF0) == 0xE0)
+            else if ((c & 0xF0) == 0xE0) 
             { // Three-byte UTF-8 character
-                char c2 = text[++i];
-                char c3 = text[++i];
+                c2 = text[++i];
+                c3 = text[++i];
                 result += DecodeUtf8ThreeByte(c, c2, c3);
             }
             else 
@@ -93,34 +100,24 @@ string ConvertToAsciiString(const string& text) {
     return result;
 }
 
-string InputFilePaths()
+string InputFilePath()
 {
-    string inputPath = "", temp;
-    bool validPath = false;
-    while (!validPath)
+    string inputPath;
+    cout << "Input the file Path (put in double quotes if the path include spaces): ";
+    getline(cin, inputPath); // Use std::getline to read the entire line including spaces
+    inputPath.erase(remove(inputPath.begin(), inputPath.end(), '\"'), inputPath.end()); // Remove double quotes from string
+    ifstream file(inputPath);
+    while (!file.good())
     {
-        std::cout << "Input the file Path (put in double quotes if the path include spaces): ";
-        cin >> temp;
-        for (int i = 0; i < temp.size(); i++)
-        {
-            if (temp[i] != '\"')
-            {
-                inputPath += temp[i];
-            }
-        }
-        // Check if the input path is valid
-        ifstream file(inputPath);
-        if (file.good())
-        {
-            validPath = true;
-            file.close();
-        }
-        else
-        {
-            cerr << "Error: Invalid file path. Please try again." << endl;
-            inputPath = "";
-        }
+        cerr << "Error: Invalid file path. Please try again." << endl;
+        cout << "Input the file Path (put in double quotes if the path include spaces): ";
+        getline(cin, inputPath);
+
+        inputPath.erase(remove(inputPath.begin(), inputPath.end(), '\"'), inputPath.end());
+        file.open(inputPath);
     }
+    file.close();
+    system("cls");  // clear console
     return inputPath;
 }
 /**
@@ -143,46 +140,99 @@ string OutputFilePath(const string& inputFilePath)
 }
 
 
+string RemoveBOM(const string& content)
+{
+    // Check if the content starts with the byte order mark (BOM)
+    if (content.size() >= 3 && content[0] == '\xEF' && content[1] == '\xBB' && content[2] == '\xBF')
+    {
+        // Return the content without the BOM
+        return content.substr(3);
+    }
+    
+    // Return the content as is if it doesn't start with the BOM
+    return content;
+}
+
+void ProcessCSVFile(ofstream &outputFile, string cleanedContent)
+{
+    string line, modifiedLine;
+    for (char c : cleanedContent)
+    {
+        if (c == '\n')
+        {
+            // Replace non-ASCII characters in the line
+            modifiedLine = ConvertToAsciiString(line);
+            // Write the modified line to the output CSV file
+            outputFile << modifiedLine << endl;
+            line.clear();
+        }
+        else
+        {
+            line += c;
+        }
+    }
+}
+
 int main() 
 {
     // Specify the path to the input CSV file
-    string inputFilePath = InputFilePaths();
-    std::cout << inputFilePath << endl;
+    string inputFilePath = InputFilePath();
+    
     // Specify the path to the output CSV file
     string outputDirectory = OutputFilePath(inputFilePath);
-    std::cout << outputDirectory << endl;
-
-    string fileName = "corrected_" + inputFilePath.substr(inputFilePath.find_last_of("\\/") + 1);
+    
+    string fileName = "corrected5_" + inputFilePath.substr(inputFilePath.find_last_of("\\/") + 1);
+    ifstream inputFile(inputFilePath);   // Use binary mode to prevent automatic encoding detection
     ofstream outputFile(outputDirectory + fileName);
 
     try {
         // Open the input CSV file with specific encoding
-        ifstream inputFile(inputFilePath);   // Use binary mode to prevent automatic encoding detection
         if (!inputFile.is_open()) 
         {
-            cerr << "Error: Unable to open input file." << endl;
-            return 1;
+            throw runtime_error("Failed to open input file: " + inputFilePath);
         }
+
+        // Read the content of the input file
+        string content((istreambuf_iterator<char>(inputFile)), (istreambuf_iterator<char>()));
+        
+        // Remove the BOM from the content
+        string cleanedContent = RemoveBOM(content);
 
         // Set the locale to UTF-8 to handle UTF-8 encoded characters
         inputFile.imbue(locale(locale(), new codecvt_utf8<wchar_t>));
         //inputFile.imbue(locale("en_US.UTF-8"));
+
         
+        if (fs::exists(outputDirectory + fileName)) 
+        {
+            char response;
+            do
+            {
+                cout << "Output file " << outputDirectory + fileName << " already exists. Do you want to overwrite it ? (y / n)" << endl;
+                cin >> response;
+
+            } while (tolower(response) != 'y' && tolower(response) != 'n');
+
+            if (tolower(response) == 'n')
+            {
+				cout << "Enter a new file name: ";
+				getline(cin, fileName);
+			}
+            else
+            {
+				fs::remove(outputDirectory + fileName); // Remove the existing file
+            }
+
+        }
+
         // Open the output CSV file
         if (!outputFile.is_open()) 
         {
-            throw runtime_error("Failed to open output file.");
+            throw runtime_error("Failed to create output file at " + outputDirectory + fileName);
         }
 
         // Process each line of the input CSV
-        string line;
-        while (getline(inputFile, line)) 
-        {
-            // Replace non-ASCII characters in the line
-            string modifiedLine = ConvertToAsciiString(line);
-            // Write the modified line to the output CSV file
-            outputFile << modifiedLine << endl;
-        }
+        ProcessCSVFile(outputFile, cleanedContent);
 
         // Close the files
         inputFile.close();
